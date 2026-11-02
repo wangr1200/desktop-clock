@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Desktop Clock</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    /* 卡片主体 */
+    .card {
+      width: 350px;
+      background: rgba(28, 38, 43, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 20px;
+      color: #ffffff;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      position: relative;
+      -webkit-app-region: drag;
+    }
+    /* 顶部控制按钮：必须设置为 no-drag 才能点击 */
+    .top-controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      -webkit-app-region: no-drag;
+    }
+    .btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .close-btn:hover {
+      background: rgba(239, 68, 68, 0.8) !important;
+    }
+    /* 星期大字显示（与时间同等大小） */
+    .weekday-large {
+      font-size: 44px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    /* 时钟显示 */
+    .time {
+      font-size: 52px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      text-align: center;
+      margin-bottom: 8px;
+      font-family: monospace;
+    }
+    /* 日期与农历 */
+    .date-info {
+      text-align: center;
+      font-size: 14px;
+      color: #d1d5db;
+      margin-bottom: 16px;
+    }
+    /* 天气信息 */
+    .weather-info {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      font-size: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 12px;
+    }
+
+    /* 设置面板弹窗样式 */
+    .settings-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      border-radius: 16px;
+      padding: 16px 20px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10;
+      -webkit-app-region: no-drag;
+      overflow-y: auto;
+    }
+    .settings-modal h3 {
+      font-size: 15px;
+      margin-bottom: 2px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 4px;
+    }
+    .setting-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+    .setting-item input[type="text"] {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 4px;
+      color: #fff;
+      padding: 3px 6px;
+      width: 110px;
+    }
+    .setting-item select {
+      background: #1e293b;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 4px;
+      padding: 3px;
+    }
+    .setting-item input[type="checkbox"] {
+      cursor: pointer;
+      width: 15px;
+      height: 15px;
+    }
+    .save-btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+      margin-top: 4px;
+    }
+    .save-btn:hover {
+      background: #2563eb;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card" id="cardPanel">
+    <!-- 顶部功能按钮 -->
+    <div class="top-controls">
+      <button class="btn" id="lockBtn" title="锁定位置" onclick="toggleLock()">🔓</button>
+      <button class="btn" title="设置" onclick="toggleSettings(true)">⚙️</button>
+      <button class="btn close-btn" title="关闭" onclick="closeApp()">×</button>
+    </div>
+
+    <!-- 星期大字 -->
+    <div class="weekday-large" id="weekdayText">星期一</div>
+
+    <!-- 核心时钟 -->
+    <div class="time" id="clock">19:12</div>
+
+    <!-- 日期与农历 -->
+    <div class="date-info" id="dateText">
+      2026年11月2日 九月廿四
+    </div>
+
+    <!-- 天气 -->
+    <div class="weather-info" id="weatherBox">
+      <span>📍 <span id="cityName">莆田</span></span>
+      <span>☁️ <span id="weatherText">多云</span> <span id="tempText">21/27°</span></span>
+    </div>
+
+    <!-- 设置面板 -->
+    <div class="settings-modal" id="settingsModal">
+      <h3>小组件个性化设置</h3>
+      <div class="setting-item">
+        <span>城市名称:</span>
+        <input type="text" id="inputCity" value="莆田">
+      </div>
+      <div class="setting-item">
+        <span>数字颜色:</span>
+        <select id="selectColor">
+          <option value="#ffffff">经典纯白</option>
+          <option value="#38bdf8">科技冰蓝</option>
+          <option value="#4ade80">荧光亮绿</option>
+          <option value="#fbbf24">暖阳明黄</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <span>时间制式:</span>
+        <select id="selectTimeFormat">
+          <option value="24">24 小时制</option>
+          <option value="12">12 小时制</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <span>显示农历:</span>
+        <input type="checkbox" id="checkLunar" checked>
+      </div>
+      <div class="setting-item">
+        <span>开机自启:</span>
+        <input type="checkbox" id="checkAutoStart">
+      </div>
+      <div class="setting-item">
+        <span>鼠标穿透:</span>
+        <input type="checkbox" id="checkThrough" title="开启后鼠标点击会穿透时钟">
+      </div>
+      <button class="save-btn" onclick="saveSettings()">保存并应用</button>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    // 实时更新时间和星期
+    function updateTime() {
+      const now = new Date();
+      const format24 = localStorage.getItem('timeFormat') !== '12';
+      let hours = now.getHours();
+      
+      if (!format24) {
+        hours = hours % 12 || 12;
+      }
+      const hStr = String(hours).padStart(2, '0');
+      const mStr = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('clock').innerText = `${hStr}:${mStr}`;
+
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const date = now.getDate();
+      const weeks = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+      const weekStr = weeks[now.getDay()];
+
+      // 更新顶部的星期大字
+      document.getElementById('weekdayText').innerText = weekStr;
+
+      let lunarStr = "九月廿四"; 
+      const showLunar = localStorage.getItem('showLunar') !== 'false';
+      
+      document.getElementById('dateText').innerText = showLunar 
+        ? `${year}年${month}月${date}日 ${lunarStr}` 
+        : `${year}年${month}月${date}日`;
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+
+    // 初始加载保存的配置
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedColor = localStorage.getItem('clockColor') || '#ffffff';
+      document.getElementById('clock').style.color = savedColor;
+      document.getElementById('weekdayText').style.color = savedColor;
+      document.getElementById('selectColor').value = savedColor;
+
+      const savedCity = localStorage.getItem('cityName') || '莆田';
+      document.getElementById('cityName').innerText = savedCity;
+      document.getElementById('inputCity').value = savedCity;
+
+      const timeFormat = localStorage.getItem('timeFormat') || '24';
+      document.getElementById('selectTimeFormat').value = timeFormat;
+
+      const showLunar = localStorage.getItem('showLunar') !== 'false';
+      document.getElementById('checkLunar').checked = showLunar;
+    });
+
+    // 锁定/解锁位置
+    let isLocked = false;
+    function toggleLock() {
+      isLocked = !isLocked;
+      const btn = document.getElementById('lockBtn');
+      const card = document.getElementById('cardPanel');
+      if (isLocked) {
+        btn.innerText = '🔒';
+        btn.style.color = '#f59e0b';
+        card.style.webkitAppRegion = 'no-drag';
+      } else {
+        btn.innerText = '🔓';
+        btn.style.color = '#fff';
+        card.style.webkitAppRegion = 'drag';
+      }
+    }
+
+    // 设置面板开关
+    function toggleSettings(show) {
+      document.getElementById('settingsModal').style.display = show ? 'flex' : 'none';
+    }
+
+    // 保存设置
+    function saveSettings() {
+      const cityInput = document.getElementById('inputCity').value;
+      const color = document.getElementById('selectColor').value;
+      const timeFormat = document.getElementById('selectTimeFormat').value;
+      const showLunar = document.getElementById('checkLunar').checked;
+      const autoStart = document.getElementById('checkAutoStart').checked;
+      const mouseThrough = document.getElementById('checkThrough').checked;
+
+      localStorage.setItem('cityName', cityInput);
+      localStorage.setItem('clockColor', color);
+      localStorage.setItem('timeFormat', timeFormat);
+      localStorage.setItem('showLunar', showLunar);
+
+      document.getElementById('cityName').innerText = cityInput;
+      document.getElementById('clock').style.color = color;
+      document.getElementById('weekdayText').style.color = color;
+
+      ipcRenderer.send('update-settings', { autoStart, mouseThrough });
+
+      toggleSettings(false);
+    }
+
+    // 关闭应用
+    function closeApp() {
+      window.close();
+    }
+  </script>
+</body>
+</html>
